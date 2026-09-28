@@ -1,8 +1,8 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
-<title>하루 7칸</title>
+<title>멋쟁이 토마토</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="하루 7칸">
+<meta name="apple-mobile-web-app-title" content="멋쟁이 토마토">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#F2E9E5">
 <meta name="robots" content="noindex,nofollow">
@@ -419,7 +419,7 @@
   <header>
     <div>
       <div class="eyebrow">전환기 루틴</div>
-      <h1>하루 7칸</h1>
+      <h1>멋쟁이 토마토</h1>
       <div id="dateline"></div>
     </div>
     <div style="display:grid;gap:6px;justify-items:end">
@@ -1345,7 +1345,7 @@
       rows.push([k, gradeOf(d).n, slotsDone(d), slotsFull(d)].concat(SLOTS.map(function(s){ return LVN[(d.sl||{})[s.k]||0]; }))
         .concat([picks.join(", "), b.cond||"", b.swell||"", b.sleep||"", d.out?"Yes":"No", d.review||""]).map(csvCell).join(","));
     });
-    download("하루7칸_기록_"+todayKey()+".csv", rows.join("\n"), "csv");
+    download("멋쟁이토마토_기록_"+todayKey()+".csv", rows.join("\n"), "csv");
   };
   $("csv2").onclick = function(){
     var rows = [["날짜","시각","칸","항목","구분","대상","수량","시작","끝","내용","분"].join(",")];
@@ -1361,7 +1361,7 @@
     S.exps.forEach(function(e){ rows.push(["실험", e.title, e.from, e.to||"", e.days||"", e.verdict==="keep"?"남긴다":e.verdict==="drop"?"버린다":"진행 중", e.note].map(csvCell).join(",")); });
     download("신호_재시작_실험_"+todayKey()+".csv", rows.join("\n"), "csv");
   };
-  $("exportbtn").onclick = function(){ download("하루7칸_백업_"+todayKey()+".json", JSON.stringify(S,null,1), "json"); };
+  $("exportbtn").onclick = function(){ download("멋쟁이토마토_백업_"+todayKey()+".json", JSON.stringify(S,null,1), "json"); };
   $("importbtn").onclick = function(){ $("importfile").click(); };
   $("importfile").onchange = function(e){
     var f = e.target.files[0]; if(!f) return;
