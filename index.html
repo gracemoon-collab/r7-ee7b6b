@@ -546,6 +546,15 @@
     </section>
 
     <section>
+      <div class="sechead"><span class="eyebrow">🍅 노션 자동 전송</span><span class="right" id="syncst"></span></div>
+      <div class="card" style="padding:13px;display:grid;gap:9px;margin-bottom:18px">
+        <div class="note" id="syncnote">연결 키를 넣으면 저장할 때마다 노션 「멋쟁이 토마토 기록」에 자동으로 쌓입니다.</div>
+        <label class="f"><span>연결 키 (이 폰에만 저장)</span><input type="text" id="synckey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="받은 키 붙여넣기"></label>
+        <div class="btns" style="justify-content:stretch">
+          <button style="flex:1" id="synckeysave">키 저장</button>
+          <button class="primary" style="flex:1" id="syncall">전체 기록 지금 보내기</button>
+        </div>
+      </div>
       <div class="sechead"><span class="eyebrow">노션으로 내보내기 · 백업</span></div>
       <div class="card" style="padding:13px;display:grid;gap:9px">
         <div class="note">노션 DB에 그대로 붙는 CSV입니다. 노션에서 <b>Merge with CSV</b>로 올리면 누적됩니다.</div>
@@ -812,7 +821,11 @@
     }catch(e){}
     return mem || blank();
   }
-  function save(){ mem = S; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+  function save(){ mem = S; markDirty(); try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} scheduleSync(); }
+  var RELAY = "https://script.google.com/macros/s/AKfycbyCD8wFWCp3Gk5LT19ZyVm4ga9nRbefXZ1u2aJQzuaph074EEE7qGQ5l2F86irD2n-qFQ/exec";
+  var syncT = null, syncing = false;
+  function markDirty(){ if(!S) return; if(!S.dirty) S.dirty = {}; S.dirty[K(new Date())] = Date.now(); }
+  function scheduleSync(){ if(!S || !S.syncKey) return; clearTimeout(syncT); syncT = setTimeout(function(){ runSync(false); }, 2500); }
   var S = load();
   if(!S.sig) S.sig = {}; if(!S.restarts) S.restarts = []; if(!S.exps) S.exps = []; if(!S.books) S.books = {};
   function seedOnce(list, rec){ if(list.some(function(x){ return x.id === rec.id; })) return false; list.push(rec); return true; }
@@ -1326,6 +1339,52 @@
         + (old.length?'<div class="meta">🍅 이전 기록: '+esc(old.join(", "))+'</div>':'')+'</div>';
     }).join("") : '<div class="logitem note">어제부터 여기 쌓입니다.</div>';
   }
+
+  // ── 노션 자동 전송 ───────────────────────────────────────────────────
+  function payloadOf(k){
+    var d = S.days[k] || {}, picks = [], notes = [], b = d.body || {};
+    SLOTS.forEach(function(sl){
+      ((d.picks||{})[sl.k]||[]).forEach(function(id){ picks.push((/^\d+$/.test(id)?"["+id+"] ":"")+optName(sl,id)); });
+      var nt = (d.notes||{})[sl.k]; if(nt) notes.push(sl.nm+": "+nt);
+    });
+    var bl = (d.blocks||[]).map(function(x){ return x.k+(blockText(x)?" ("+blockText(x)+")":"")+(x.min?" "+x.min+"분":""); });
+    var bmin = (d.blocks||[]).reduce(function(a,x){ return a+(x.min||0); }, 0);
+    var g = gradeOf(d);
+    return {date:k, grade:(g.c ? g.t : "미달"), n:slotsDone(d), f:slotsFull(d),
+      slots:SLOTS.map(function(sl){ return [sl.ico+" "+sl.nm, ["—","최소","제대로"][(d.sl||{})[sl.k]||0]]; }),
+      picks:picks.join(", "), blocks:bl.join(" / "), bmin:bmin, out:!!d.out, review:d.review||"", notes:notes.join(" / "),
+      "컨디션":b.cond||null, "붓기":b.swell||null, "수면":b.sleep||null};
+  }
+  function syncStatus(msg){ var el = $("syncst"); if(el) el.textContent = msg; }
+  function runSync(all){
+    if(!S.syncKey) return;
+    if(syncing){ scheduleSync(); return; }
+    var ks = all ? Object.keys(S.days).filter(function(k){ var d=S.days[k]; return d && (d.sl||d.review||d.blocks); })
+                 : Object.keys(S.dirty||{});
+    if(!ks.length){ syncStatus("✓ 최신"); return; }
+    syncing = true; syncStatus("보내는 중…");
+    var sent = {}; ks.forEach(function(k){ sent[k] = (S.dirty||{})[k]; });
+    var body = JSON.stringify({key:S.syncKey, days:ks.sort().map(payloadOf)});
+    fetch(RELAY, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        syncing = false;
+        if(j.err==="key"){ syncStatus("키가 맞지 않아요"); return; }
+        if(j.ok){ ks.forEach(function(k){ if(S.dirty && S.dirty[k] === sent[k]) delete S.dirty[k]; }); S.lastSync = new Date().toISOString();
+          try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+          syncStatus("✓ "+new Date().toTimeString().slice(0,5)+" 노션에 저장");
+          if(Object.keys(S.dirty||{}).length) scheduleSync(); }
+        else syncStatus("일부 실패 · 나중에 다시 보냅니다");
+      })
+      .catch(function(){ syncing = false; syncStatus("오프라인 · 연결되면 다시 보냅니다"); });
+  }
+  $("synckey").value = S.syncKey || "";
+  $("synckeysave").onclick = function(){ S.syncKey = $("synckey").value.trim() || null; save();
+    syncStatus(S.syncKey ? "키 저장됨" : "꺼짐"); if(S.syncKey) runSync(true); };
+  $("syncall").onclick = function(){ if(!S.syncKey){ syncStatus("먼저 키를 저장하세요"); return; } runSync(true); };
+  window.addEventListener("online", function(){ runSync(false); });
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) runSync(false); });
+  syncStatus(S.syncKey ? (S.lastSync ? "✓ "+S.lastSync.slice(5,16).replace("T"," ") : "대기") : "꺼짐");
 
   // ── CSV · 백업 ───────────────────────────────────────────────────────
   function csvCell(v){ v = v==null ? "" : String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
