@@ -824,6 +824,31 @@
   }
   var S = load();
   if(!S.sig) S.sig = {}; if(!S.restarts) S.restarts = []; if(!S.exps) S.exps = []; if(!S.books) S.books = {};
+  // ── 이전 버전(7칸 · 뽀모) 기록을 지우지 않고 새 항목으로 옮겨 보여준다 ────────
+  (function migrate(){
+    var n = 0;
+    Object.keys(S.days).forEach(function(k){ var d = S.days[k]; if(!d || d.mig) return;
+      if(!d.sl && !d.blocks && !d.p) return;
+      if(!d.ck) d.ck = {}; if(!d.det) d.det = {}; var memo = [];
+      var sl = d.sl || {}, picks = d.picks || {}, notes = d.notes || {};
+      if(sl.am) d.ck["m-am"] = 1;
+      if(sl.night) d.ck["m-pm"] = 1;
+      if(sl.eve) d.ck[sl.eve===2 ? "d-leg" : "m-am"] = 1;
+      if(sl.care) d.ck["d-care"] = 1;
+      if((picks.pm||[]).indexOf("038")>=0) d.ck["d-walk"] = 1;
+      if(sl.wake) memo.push("기상 루틴");
+      (d.blocks||[]).forEach(function(b){ var f = b.f||{};
+        if(b.k==="중국어"){ d.ck["m-cn"] = 1; if((b.min||0)>=30) d.ck["d-cn"] = 1; }
+        else if(b.k==="독서"){ d.ck["m-rd"] = 1; if((b.min||0)>=30) d.ck["d-rd"] = 1;
+          if(f["대상"] && f["끝"]){ if(!d.reads) d.reads = []; d.reads.push({id:"mig-"+k+"-"+(b.t||""), book:f["대상"], genre:"", from:+(f["시작"]||0), to:+f["끝"], t:b.t||""}); } }
+        else if(b.k==="운동"){ d.ck["d-leg"] = 1; }
+        memo.push(b.k+(b.min?" "+b.min+"분":"")+(f["내용"]?" ("+f["내용"]+")":"")); });
+      for(var s in notes) if(notes[s]) memo.push(notes[s]);
+      if(d.p) for(var x in d.p) if(d.p[x]) memo.push(x+" "+d.p[x]+"뽀모");
+      if(memo.length){ d.det["m-am"] = d.det["m-am"] || {}; d.oldMemo = memo.join(" / "); }
+      d.mig = 1; n++; });
+    if(n) try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+  })();
   var RELAY = "https://script.google.com/macros/s/AKfycbyCD8wFWCp3Gk5LT19ZyVm4ga9nRbefXZ1u2aJQzuaph074EEE7qGQ5l2F86irD2n-qFQ/exec";
   var syncT = null, syncing = false, retry = 0;
   // ── 하루를 «항목 단위»로 합친다: 폰과 PC가 같은 날을 따로 고쳐도 둘 다 남는다
@@ -1337,7 +1362,8 @@
       var parts = AREAS.map(function(a){ var s = areaState(d, a.k); return s==="—" ? "" : a.ico+s; }).filter(Boolean);
       return '<div class="logitem"><div class="meta">'+k+' · '+g.t+' · 필수 '+mustDone(d)+'/'+MUST.length+(d.out?' · 외출':'')+'</div>'
         + '<div class="body">'+esc(parts.join("  "))+'</div>'
-        + (legacyN(d) && !d.ck ? '<div class="meta">🍅 이전 버전 기록</div>' : '')+'</div>';
+        + (d.oldMemo ? '<div class="meta">🍅 이전 버전: '+esc(d.oldMemo)+'</div>' : '')
+        + (d.review ? '<div class="meta">🪞 '+esc(d.review)+'</div>' : '')+'</div>';
     }).join("") : '<div class="logitem note">어제부터 여기 쌓입니다.</div>';
   }
 
@@ -1361,7 +1387,7 @@
       ["🙏 기도","number",pray], ["한 것","text",done.join(", ")], ["독서 기록","text",reading],
       ["읽은 쪽","number",pagesOf(d)||null], ["📕 문학","number",pagesOf(d,"문학")||null], ["📜 역사","number",pagesOf(d,"역사")||null], ["🦉 철학","number",pagesOf(d,"철학")||null],
       ["컨디션","number",bd.cond||null], ["붓기","number",bd.swell||null], ["수면","number",bd.sleep||null], ["시간(분)","number",mins||null],
-      ["외출","checkbox",!!d.out], ["회고","text",d.review||""], ["메모","text",dets.join(" / ")]]};
+      ["외출","checkbox",!!d.out], ["회고","text",d.review||""], ["메모","text",dets.concat(d.oldMemo?["이전 버전: "+d.oldMemo]:[]).join(" / ")]]};
   }
   function syncStatus(msg){ var el = $("syncst"); if(el) el.textContent = msg; }
   var pushed = {};
