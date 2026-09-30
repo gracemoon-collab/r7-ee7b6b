@@ -661,7 +661,7 @@
     </section>
   </div>
 
-  <div class="foot">루틴 번호 출처 <span class="num">재취업준비 저장 피드 자료집</span></div>
+  <div class="foot">v202609301443 · 루틴 번호 출처 <span class="num">재취업준비 저장 피드 자료집</span></div>
 </div>
 
 <nav>
@@ -1643,6 +1643,23 @@
   window.addEventListener("pageshow", checkDayRoll);
   document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkDayRoll(); });
 
+  // ── 자동 업데이트: 새 버전이 올라오면 알아서 새로고침한다 (기록은 그대로) ──────
+  var APP_VER = "202609301443";
+  var updPending = false;
+  function busy(){ return document.querySelector("dialog[open]") || (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)); }
+  function doUpdate(v){ persist(); location.replace(location.pathname + "?v=" + v); }
+  function checkUpdate(){
+    if(!/github\.io$/.test(location.hostname)) return;
+    fetch(location.pathname + "?check=" + Date.now(), {cache:"no-store"})
+      .then(function(r){ return r.text(); })
+      .then(function(h){ var m = h.match(/var APP_VER = "(\d+)"/); if(!m || m[1] === APP_VER) return;
+        if(busy()){ updPending = m[1]; return; } doUpdate(m[1]); })
+      .catch(function(){});
+  }
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkUpdate(); });
+  window.addEventListener("pageshow", checkUpdate);
+  setInterval(function(){ if(updPending && !busy()) doUpdate(updPending); else checkUpdate(); }, 300000);
+  setTimeout(checkUpdate, 1500);
   baseline(); applyTheme(); applySkin(); render(); if(S.syncKey) runSync(false);
 })();
 </script>
